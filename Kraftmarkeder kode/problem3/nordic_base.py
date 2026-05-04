@@ -1,10 +1,10 @@
 """
 nordic_base.py
-==============
+
 Shared solver module for the Nordic 12-node power market model.
 
-This is a refactored version of the course-provided "FBMC Pyomo script.py".
-All task scripts in problem3/ and problem4/ import and call solve_nordic().
+This is a refactored version of the course-provided "FBMC Pyomo script.py"
+All task scripts in problem3/ and problem4/ import and call solve_nordic()
 
 Nordic nodes (1-indexed, matching Excel):
   1  NO4   2  NO3   3  NO5   4  NO2   5  NO1
@@ -13,7 +13,7 @@ Nordic nodes (1-indexed, matching Excel):
   (* SE1 is the reference node, theta = 0)
 
 Usage
------
+-
     from nordic_base import solve_nordic
 
     # FBMC (DC power flow), wet year
@@ -24,7 +24,7 @@ Usage
                        gencap_override={8: 4000})
 
 Returns
--------
+-
 A dict with keys:
     objective      float   Total system cost [€]
     gen            dict    {n: MW}   generation per node
@@ -47,9 +47,7 @@ import pandas as pd
 import pyomo.environ as pyo
 
 
-# ---------------------------------------------------------------------------
 # Public API
-# ---------------------------------------------------------------------------
 
 def solve_nordic(
     filename,
@@ -64,7 +62,7 @@ def solve_nordic(
     Read Excel data, build and solve the FBMC or ATC model, return results dict.
 
     Parameters
-    ----------
+    -
     filename        : str   Path to Nordic Excel file (e.g. '../data/Nordic_wet.xlsx')
     dcflow          : bool  True = FBMC (PTDF-based DCOPF), False = ATC transport model.
                             If None, reads the flag from the Excel Declarations sheet.
@@ -104,9 +102,7 @@ def solve_nordic(
     return results
 
 
-# ---------------------------------------------------------------------------
 # Excel reader
-# ---------------------------------------------------------------------------
 
 def _read_excel(name):
     data = {}
@@ -134,8 +130,6 @@ def _read_excel(name):
 
     return data
 
-
-# ---------------------------------------------------------------------------
 # Matrix construction (B, DC-incidence, X-incidence)
 # ---------------------------------------------------------------------------
 
@@ -173,9 +167,9 @@ def _create_matrices(Data):
     return Data
 
 
-# ---------------------------------------------------------------------------
 # PTDF matrix  H = B_line · A_reduced · B_reduced⁻¹
-# ---------------------------------------------------------------------------
+# ------------------------------------------------------------------------
+
 
 def _calculate_ptdf(Data):
     B       = Data["B-matrix"]
@@ -211,19 +205,17 @@ def _calculate_ptdf(Data):
     return Data
 
 
-# ---------------------------------------------------------------------------
 # Pyomo model
-# ---------------------------------------------------------------------------
 
 def _run_model(Data, solver="gurobi", verbose=False):
     model = pyo.ConcreteModel()
 
-    # --- Sets ---
+    # Sets 
     model.L = pyo.Set(ordered=True, initialize=Data["AC-lines"]["ACList"])
     model.N = pyo.Set(ordered=True, initialize=Data["Nodes"]["NodeList"])
     model.H = pyo.Set(ordered=True, initialize=Data["DC-lines"]["DCList"])
 
-    # --- Parameters ---
+    # Parameters 
     model.Demand    = pyo.Param(model.N, initialize=Data["Nodes"]["DEMAND"])
     model.P_min     = pyo.Param(model.N, initialize=Data["Nodes"]["GENMIN"])
     model.P_max     = pyo.Param(model.N, initialize=Data["Nodes"]["GENCAP"])
@@ -237,32 +229,32 @@ def _run_model(Data, solver="gurobi", verbose=False):
 
     model.DC_cap = pyo.Param(model.H, initialize=Data["DC-lines"]["Cap"])
 
-    # --- Variables ---
+    # Variables 
     model.gen        = pyo.Var(model.N, within=pyo.Reals)
     model.shed       = pyo.Var(model.N, within=pyo.NonNegativeReals)
     model.flow_AC    = pyo.Var(model.L, within=pyo.Reals)
     model.flow_DC    = pyo.Var(model.H, within=pyo.Reals)
     model.injections = pyo.Var(model.N, within=pyo.Reals)
 
-    # --- Objective ---
+    # Objective 
     def ObjRule(m):
         return (sum(m.gen[n]  * m.Cost_gen[n] for n in m.N) +
                 sum(m.shed[n] * m.Cost_shed    for n in m.N))
     model.OBJ = pyo.Objective(rule=ObjRule, sense=pyo.minimize)
 
-    # --- Generation bounds ---
+    # Generation bounds 
     model.Min_gen_const = pyo.Constraint(model.N, rule=lambda m, n: m.gen[n] >= m.P_min[n])
     model.Max_gen_const = pyo.Constraint(model.N, rule=lambda m, n: m.gen[n] <= m.P_max[n])
 
-    # --- AC line flow bounds ---
+    # AC line flow bounds 
     model.From_flow_L = pyo.Constraint(model.L, rule=lambda m, l: m.flow_AC[l] <=  m.P_AC_max[l])
     model.To_flow_L   = pyo.Constraint(model.L, rule=lambda m, l: m.flow_AC[l] >= -m.P_AC_min[l])
 
-    # --- DC cable bounds ---
+    # DC cable bounds 
     model.FlowBalDC_max_const = pyo.Constraint(model.H, rule=lambda m, h: m.flow_DC[h] <=  m.DC_cap[h])
     model.FlowBalDC_min_const = pyo.Constraint(model.H, rule=lambda m, h: m.flow_DC[h] >= -m.DC_cap[h])
 
-    # --- Balance constraints (FBMC vs ATC) ---
+    # Balance constraints (FBMC vs ATC) 
     if Data["DCFlow"]:
         # Injection definition: inj_n = gen_n - demand_n + shed_n - sum(DC_hn * flow_DC_h)
         def InjDef(m, n):
@@ -288,7 +280,7 @@ def _run_model(Data, solver="gurobi", verbose=False):
                     + sum(Data["DC-matrix"][h-1, n-1] * m.flow_DC[h] for h in m.H))
         model.LoadBal_const = pyo.Constraint(model.N, rule=LoadBal)
 
-    # --- Solve ---
+    # Solve 
     model.dual = pyo.Suffix(direction=pyo.Suffix.IMPORT)
     opt        = pyo.SolverFactory(solver)
     sol        = opt.solve(model, load_solutions=True, tee=verbose)
@@ -296,7 +288,7 @@ def _run_model(Data, solver="gurobi", verbose=False):
     if verbose:
         sol.write(num=1)
 
-    # --- Extract results ---
+    # Extract results 
     if Data["DCFlow"]:
         prices     = {n: model.dual[model.InjDef_const[n]]  for n in model.N}
         shadow_ac  = {l: model.dual[model.FlowBal_const[l]] for l in model.L}
@@ -326,7 +318,6 @@ def _run_model(Data, solver="gurobi", verbose=False):
     return results
 
 
-# ---------------------------------------------------------------------------
 # Pretty-print helpers (used by task scripts)
 # ---------------------------------------------------------------------------
 
