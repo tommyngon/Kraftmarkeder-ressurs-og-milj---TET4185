@@ -1,6 +1,6 @@
 """
 Task 3-2 — Wet Year: FBMC and ATC market clearing
-===================================================
+
 Solves the Nordic 12-node market for the wet year using both:
   - FBMC (DC power flow / PTDF-based DCOPF)
   - ATC  (Available Transfer Capacity / transport network)
@@ -36,11 +36,11 @@ from nordic_base import (
     compute_congestion_rent,
 )
 
-# ── Output directory: same folder as this script ──────────────────────────────
+# Output directory: same folder as this script 
 OUT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_WET = os.path.join(os.path.dirname(__file__), "../data/Nordic_wet.xlsx")
 
-# ── Plot style ─────────────────────────────────────────────────────────────────
+# Plot style 
 C_FBMC = '#2166AC'   # steel blue
 C_ATC  = '#D6604D'   # muted red
 C_DEM  = '#333333'
@@ -60,9 +60,7 @@ plt.rcParams.update({
 })
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# FIGURE GENERATORS  (all accept the live solver-result dicts)
-# ══════════════════════════════════════════════════════════════════════════════
+# Figure generator
 
 def _savefig(fig, stem):
     """Save PDF + PNG and print paths."""
@@ -96,7 +94,7 @@ def fig_gen_prices(res_fbmc, res_atc):
                              gridspec_kw={'wspace': 0.30})
     bw = 0.34
 
-    # ── Left: generation ──────────────────────────────────────────────────────
+    # Left: generation
     ax = axes[0]
     ax.bar(idx - bw/2, [g/1e3 for g in fbmc_gen], bw,
            label='FBMC', color=C_FBMC, edgecolor='white', linewidth=.6)
@@ -117,7 +115,7 @@ def fig_gen_prices(res_fbmc, res_atc):
     ax.yaxis.set_minor_locator(mticker.AutoMinorLocator())
     ax.grid(axis='y', alpha=0.3)
 
-    # ── Right: prices ─────────────────────────────────────────────────────────
+    # Right: prices 
     ax = axes[1]
     ax.bar(idx - bw/2, fbmc_price, bw,
            label='FBMC', color=C_FBMC, edgecolor='white', linewidth=.6)
@@ -257,17 +255,14 @@ def fig_shadow_prices(res_fbmc):
 
     _savefig(fig, 'fig_32_shadow_prices')
 
-
-# ══════════════════════════════════════════════════════════════════════════════
 # MAIN
-# ══════════════════════════════════════════════════════════════════════════════
 
 def main():
     print("\n" + "=" * 72)
     print("  TASK 3-2  |  Wet Year  |  FBMC vs ATC")
     print("=" * 72)
 
-    # ------------------------------------------------------------------ FBMC
+    # FBMC
     print("\n>>> Solving FBMC (DC power flow) — Wet year ...")
     res_fbmc = solve_nordic(DATA_WET, dcflow=True)
     print_generation_table(
@@ -280,7 +275,7 @@ def main():
     print(f"\n  FBMC Congestion Rent total: {total_cr_fbmc:,.2f} €/h")
     print(f"  FBMC Objective (total cost): {res_fbmc['objective']:,.2f} €/h")
 
-    # ------------------------------------------------------------------- ATC
+    # ATC
     print("\n>>> Solving ATC (transport network) — Wet year ...")
     res_atc = solve_nordic(DATA_WET, dcflow=False)
     print_generation_table(
@@ -293,7 +288,7 @@ def main():
     print(f"\n  ATC Congestion Rent total: {total_cr_atc:,.2f} €/h")
     print(f"  ATC Objective (total cost): {res_atc['objective']:,.2f} €/h")
 
-    # ---------------------------------------------------------------- Summary
+    # Summary
     print("\n\n" + "=" * 72)
     print("  COMPARISON SUMMARY — Wet Year")
     print("=" * 72)
@@ -314,7 +309,7 @@ def main():
         print(f"  {n:<5} {names[n]:<6} "
               f"{res_fbmc['prices'][n]:>12.2f} {res_atc['prices'][n]:>12.2f}")
 
-    # ------------------------------------------------------------ Figures
+    # Figures
     print("\n\n>>> Generating figures ...")
     fig_gen_prices(res_fbmc, res_atc)
     fig_ac_flows(res_fbmc, res_atc)
