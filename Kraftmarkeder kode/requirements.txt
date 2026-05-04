@@ -1,0 +1,7 @@
+numpy>=1.24
+pandas>=2.0
+openpyxl>=3.1
+pyomo>=6.7
+# Solver: Gurobi (gurobipy) must be installed and licensed separately.
+# Academic licenses available at https://www.gurobi.com/academia/academic-program-and-licenses/
+gurobipy>=10.0
